@@ -71,7 +71,7 @@ docker compose down --volumes --remove-orphans
 
 ## 4. 实际验证记录
 
-下列本地记录于 **2026-10-31（UTC）**完成，最终全量运行期间源码与测试未变更。依据真实执行证据，不根据已编写的测试推断成功。
+下列验证于 **2026-10-31（UTC）**完成，本地最终全量运行期间源码与测试未变更。随后远端 [GitHub Actions run 41226703037](https://github.com/liuzongquan/mcp_gateway/actions/runs/41226703037) 对代码提交 [`2e7cb2b`](https://github.com/liuzongquan/mcp_gateway/commit/2e7cb2b08604fe511d6540d9e747b75642a22477) 的 **test 与 compose 两个 job 均成功**。依据真实执行证据，不根据已编写的测试推断成功。
 
 | 检查 | 记录 |
 |---|---|
@@ -82,11 +82,12 @@ docker compose down --volumes --remove-orphans
 | 文档与配置静态检查 | 三份示例配置通过 Pydantic 验证；Compose/Actions YAML 可解析；本地 Markdown 链接全部有效；smoke script Ruff 通过（不等于容器验收） |
 | CLI 独立进程部署冒烟 | 2026-10-31，真实 Redis + 演示后端 + A/B 两个网关进程，交替计数 1→2→3→4 和 DELETE 通过；使用全新 clean lock 环境复查通过（Python 3.12.14 / MCP 1.30.0）；另验证 Docker Host `backend:8081` 被允许、不可信 Host 被拒绝 |
 | 真实 Redis | 从官方源码构建 Redis 7.2.10；独立 SDK acceptance 与上述 CLI 进程冒烟均实际使用该二进制，而非模拟 Redis |
-| Docker / Compose | 本地执行环境没有 Docker 可执行文件，**未在本地运行容器构建/Compose**；CI 配置了独立 job，远程结果须另外核验 |
+| Docker / Compose | **远端真实 Docker 验收通过**：[compose job 124612245152](https://github.com/liuzongquan/mcp_gateway/actions/runs/41226703037/job/124612245152) 实际完成镜像构建、`docker compose up --wait`、双网关计数 `1→2→3→4`、稳定路由头断言和 session 删除；17:54:10 UTC 打印 PASS。本地执行环境无 Docker，容器结论来自该真实 CI，不是本地静态检查 |
+| 远端 CI 测试 | [test job 124612245447](https://github.com/liuzongquan/mcp_gateway/actions/runs/41226703037/job/124612245447) 成功：Python 3.12.15，252 单元（7.67 秒）+ 51 功能（6.08 秒）+ 17 集成（18.37 秒），合计 **320 项通过** |
 | 外部真实 embedding 模型 | 未进行模型质量或真实供应商效果验收；HTTP adapter 的受控协议测试不算语义 benchmark |
 | 论文生产 benchmark | 未复现；私有数据集、生产平台与精确模型不可得 |
 
-CI 的 `test` job 会独立运行三个 pytest 选择表达式并上传 JUnit/coverage artifact；`compose` job 构建镜像、启动双网关并运行跨网关计数断言。未查看对应提交的 CI 终态前，不应声称“CI 已通过”。
+CI 的 `test` job 独立运行三个 pytest 选择表达式并上传 JUnit/coverage artifact；`compose` job 构建镜像、启动双网关并运行跨网关计数断言。上面的结论对应明确链接的代码提交；后续源码或依赖变更应重新运行，不把历史成功当作未来版本的保证。
 
 ## 5. 失败定位
 

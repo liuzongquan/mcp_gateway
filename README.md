@@ -4,6 +4,8 @@
 
 > **复现边界**：这是独立的 Python 实现，不是论文作者的 Go/WASM 源码。默认 dense 路为确定性词法哈希向量，**不是预训练语义模型**；可显式接入真实 embedding HTTP 服务。未获得论文的私有工具库与生产流量，**不声称复现其 98% 召回率、生产规模或性能指标**。详见 [论文→代码映射与差距](docs/paper-traceability.md)。
 
+**已验证：320 项测试通过，Docker 双网关部署冒烟通过。** [查看 CI 记录](https://github.com/liuzongquan/mcp_gateway/actions/runs/41226703037)（2026-10-31，代码提交 `2e7cb2b`）。
+
 **推荐入口：** [Docker 部署](#docker-deployment) · [配置与权限](#configuration) · [测试与验收](docs/testing.md) · [架构与论文差距](docs/paper-traceability.md)
 
 ## 1. 已实现的核心机制
@@ -45,7 +47,7 @@ docker compose down --volumes --remove-orphans
 - 网关容器使用非 root 用户、只读根文件系统与删除的 Linux capabilities。
 - Compose 是本地开发拓扑，**不是生产高可用部署**；不启用 Redis 持久化/TLS，不提供外部负载均衡器。
 
-Docker 检查的实际执行状态见 [测试与复现记录](docs/testing.md)。提供配置文件不等于已运行容器验收。
+该方案已在 GitHub Actions 中实际构建镜像、启动四个容器并通过跨网关冒烟；对应提交、job 和测试证据见 [测试与复现记录](docs/testing.md)。
 
 ### 2.1 首次 Docker 部署：无需本地 Python / Redis
 
