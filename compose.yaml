@@ -1,0 +1,67 @@
+name: paper-mcp-gateway
+
+x-gateway-common: &gateway-common
+  build: .
+  image: paper-mcp-gateway:local
+  init: true
+  environment:
+    GATEWAY_TOKEN: ${GATEWAY_TOKEN:?Set GATEWAY_TOKEN to a random local-demo credential}
+  depends_on:
+    redis:
+      condition: service_healthy
+    backend:
+      condition: service_healthy
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=3)"]
+    interval: 5s
+    timeout: 4s
+    retries: 12
+    start_period: 5s
+
+services:
+  redis:
+    image: redis:7.2.10-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # No host-port mapping: Redis is private to the Compose network.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  backend:
+    build: .
+    image: paper-mcp-gateway:local
+    init: true
+    command: ["python", "-m", "uvicorn", "examples.demo_backend:app", "--host", "0.0.0.0", "--port", "8081"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=3)"]
+      interval: 3s
+      timeout: 4s
+      retries: 20
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  gateway-a:
+    <<: *gateway-common
+    command: ["mcp-gateway", "--config", "/app/examples/gateway-a.json", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  gateway-b:
+    <<: *gateway-common
+    command: ["mcp-gateway", "--config", "/app/examples/gateway-b.json", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "127.0.0.1:8082:8080"

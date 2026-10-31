@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      REDIS_SERVER: /usr/bin/redis-server
+    steps:
+      # Pinned release commits, not moving tags.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+      - name: Install real Redis executable
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-server
+          "$REDIS_SERVER" --version
+      - name: Install locked Python dependencies
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install --no-deps --no-build-isolation -e .
+          python -m pip check
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests
+        run: pytest -q -m 'not functional and not integration' --junitxml=reports/unit.xml --cov=mcp_gateway --cov-report=
+      - name: Functional tests
+        run: pytest -q -m 'functional and not integration' --junitxml=reports/functional.xml --cov=mcp_gateway --cov-append --cov-report=
+      - name: System integration with real Redis and MCP SDK
+        run: pytest -q -m integration --junitxml=reports/integration.xml --cov=mcp_gateway --cov-append --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: reports/
+          if-no-files-found: warn
+
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Generate ephemeral demo credential
+        run: |
+          echo "GATEWAY_TOKEN=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - name: Validate Compose and wait for readiness
+        run: |
+          docker compose config --quiet
+          docker compose up --build --wait --wait-timeout 120
+      - name: Verify cross-gateway state continuity
+        run: docker compose exec -T gateway-a python - < docs/compose_smoke.py
+      - name: Show service logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop services
+        if: always()
+        run: docker compose down --volumes --remove-orphans

@@ -1,0 +1,54 @@
+{
+  "instance_id": "gateway-a",
+  "redis_url": "redis://redis:6379/0",
+  "principals": [
+    {
+      "subject": "demo",
+      "token_env": "GATEWAY_TOKEN",
+      "allow": [
+        "demo__*"
+      ]
+    }
+  ],
+  "mcp_backends": [
+    {
+      "name": "demo",
+      "url": "http://backend:8081/mcp",
+      "transport": "streamable-http",
+      "tools": [
+        {
+          "name": "echo",
+          "description": "Echo a message back to the caller.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "name": "increment",
+          "description": "Increment and return the session-local counter.",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "default": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    }
+  ],
+  "list_mode": "all",
+  "allowed_origins": []
+}
